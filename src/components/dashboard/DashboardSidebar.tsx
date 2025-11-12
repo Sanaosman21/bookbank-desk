@@ -2,7 +2,14 @@ import { Plus, BookMarked, Lock, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { Subject } from "@/pages/Dashboard";
+
+interface Subject {
+  id: string;
+  name: string;
+  is_public: boolean;
+  semester: string;
+  user_id: string;
+}
 
 interface DashboardSidebarProps {
   subjects: Subject[];
@@ -56,7 +63,7 @@ const DashboardSidebar = ({
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{subject.name}</span>
-                    {subject.isPublic ? (
+                    {subject.is_public ? (
                       <Globe className="h-4 w-4 opacity-60" />
                     ) : (
                       <Lock className="h-4 w-4 opacity-60" />

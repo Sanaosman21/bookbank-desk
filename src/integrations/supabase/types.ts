@@ -14,7 +14,104 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      pdfs: {
+        Row: {
+          file_url: string
+          id: string
+          subject_id: string
+          title: string
+          upload_date: string
+          user_id: string
+        }
+        Insert: {
+          file_url: string
+          id?: string
+          subject_id: string
+          title: string
+          upload_date?: string
+          user_id: string
+        }
+        Update: {
+          file_url?: string
+          id?: string
+          subject_id?: string
+          title?: string
+          upload_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdfs_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdfs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      subjects: {
+        Row: {
+          created_at: string
+          id: string
+          is_public: boolean
+          name: string
+          semester: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_public?: boolean
+          name: string
+          semester: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_public?: boolean
+          name?: string
+          semester?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subjects_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

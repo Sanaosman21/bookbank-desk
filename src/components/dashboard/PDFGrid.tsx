@@ -1,7 +1,15 @@
 import { FileText, Download, Eye, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import type { PDF } from "@/pages/Dashboard";
+
+interface PDF {
+  id: string;
+  title: string;
+  subject_id: string;
+  upload_date: string;
+  file_url: string;
+  user_id: string;
+}
 
 interface PDFGridProps {
   pdfs: PDF[];
@@ -47,7 +55,7 @@ const PDFGrid = ({ pdfs, onUploadClick }: PDFGridProps) => {
                       {pdf.title}
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(pdf.uploadDate).toLocaleDateString()}
+                      {new Date(pdf.upload_date).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -57,7 +65,7 @@ const PDFGrid = ({ pdfs, onUploadClick }: PDFGridProps) => {
                     variant="outline" 
                     size="sm" 
                     className="flex-1"
-                    onClick={() => window.open(pdf.fileUrl, '_blank')}
+                    onClick={() => window.open(pdf.file_url, '_blank')}
                   >
                     <Eye className="mr-2 h-4 w-4" />
                     View

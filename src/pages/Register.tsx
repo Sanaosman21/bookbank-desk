@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -15,11 +16,18 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleRegister = (e: React.FormEvent) => {
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate("/dashboard");
+      }
+    });
+  }, [navigate]);
+
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Basic validation
     if (password !== confirmPassword) {
       toast.error("Passwords don't match");
       setIsLoading(false);
@@ -32,13 +40,25 @@ const Register = () => {
       return;
     }
 
-    // Mock registration - in real app, this would create user in backend
-    setTimeout(() => {
-      localStorage.setItem("bookbank_user", JSON.stringify({ email, name: username }));
-      toast.success("Account created successfully!");
-      navigate("/dashboard");
-      setIsLoading(false);
-    }, 800);
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          username,
+        },
+        emailRedirectTo: `${window.location.origin}/dashboard`,
+      },
+    });
+
+    setIsLoading(false);
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Account created! Check your email to verify.");
+      navigate("/login");
+    }
   };
 
   return (

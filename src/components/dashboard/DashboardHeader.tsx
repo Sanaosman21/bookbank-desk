@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { User as UserType } from "@supabase/supabase-js";
 import { BookOpen, User, LogOut, Settings } from "lucide-react";
 import {
   Select,
@@ -18,22 +18,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DashboardHeaderProps {
+  user: UserType | null;
   selectedSemester: string;
   onSemesterChange: (semester: string) => void;
 }
 
-const DashboardHeader = ({ selectedSemester, onSemesterChange }: DashboardHeaderProps) => {
+const DashboardHeader = ({ user, selectedSemester, onSemesterChange }: DashboardHeaderProps) => {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem("bookbank_user") || "{}");
-  const initials = user.name?.substring(0, 2).toUpperCase() || "U";
+  const initials = user?.email?.substring(0, 2).toUpperCase() || "U";
 
-  const handleLogout = () => {
-    localStorage.removeItem("bookbank_user");
-    localStorage.removeItem("bookbank_semester");
-    toast.success("Logged out successfully");
-    navigate("/login");
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error("Failed to logout");
+    } else {
+      toast.success("Logged out successfully");
+      navigate("/");
+    }
   };
 
   const semesters = Array.from({ length: 8 }, (_, i) => ({
@@ -79,8 +83,8 @@ const DashboardHeader = ({ selectedSemester, onSemesterChange }: DashboardHeader
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium">{user.name}</p>
-                <p className="text-xs text-muted-foreground">{user.email}</p>
+                <p className="text-sm font-medium">{user?.user_metadata?.username || "User"}</p>
+                <p className="text-xs text-muted-foreground">{user?.email}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

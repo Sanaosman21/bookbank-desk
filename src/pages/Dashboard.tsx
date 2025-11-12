@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { User, Session } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import PDFGrid from "@/components/dashboard/PDFGrid";
@@ -9,119 +12,198 @@ import UploadPDFModal from "@/components/dashboard/UploadPDFModal";
 export interface Subject {
   id: string;
   name: string;
-  isPublic: boolean;
+  is_public: boolean;
   semester: string;
+  user_id: string;
 }
 
 export interface PDF {
   id: string;
   title: string;
-  subjectId: string;
-  uploadDate: string;
-  fileUrl: string;
+  subject_id: string;
+  upload_date: string;
+  file_url: string;
+  user_id: string;
 }
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [selectedSemester, setSelectedSemester] = useState<string>("");
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [pdfs, setPdfs] = useState<PDF[]>([]);
   const [isAddSubjectOpen, setIsAddSubjectOpen] = useState(false);
   const [isUploadPDFOpen, setIsUploadPDFOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Check authentication
+  // Check authentication and load data
   useEffect(() => {
-    const user = localStorage.getItem("bookbank_user");
-    if (!user) {
-      navigate("/login");
-    }
+    // Set up auth listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (!session) {
+          navigate("/login");
+        }
+      }
+    );
 
-    // Load saved semester
-    const savedSemester = localStorage.getItem("bookbank_semester");
-    if (savedSemester) {
-      setSelectedSemester(savedSemester);
-    } else {
-      setSelectedSemester("1");
-    }
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (!session) {
+        navigate("/login");
+      } else {
+        // Load saved semester
+        const savedSemester = localStorage.getItem("bookbank_semester");
+        if (savedSemester) {
+          setSelectedSemester(savedSemester);
+        } else {
+          setSelectedSemester("1");
+        }
+        setLoading(false);
+      }
+    });
 
-    // Load mock data
-    loadMockData();
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const loadMockData = () => {
-    // Mock subjects
-    const mockSubjects: Subject[] = [
-      { id: "1", name: "Data Structures", isPublic: true, semester: "1" },
-      { id: "2", name: "Operating Systems", isPublic: false, semester: "1" },
-      { id: "3", name: "Database Management", isPublic: true, semester: "2" },
-      { id: "4", name: "Computer Networks", isPublic: true, semester: "3" },
-    ];
+  // Load subjects when semester changes
+  useEffect(() => {
+    if (user && selectedSemester) {
+      loadSubjects();
+    }
+  }, [user, selectedSemester]);
 
-    // Mock PDFs
-    const mockPDFs: PDF[] = [
-      { id: "1", title: "Arrays and Linked Lists", subjectId: "1", uploadDate: "2024-01-15", fileUrl: "#" },
-      { id: "2", title: "Trees and Graphs", subjectId: "1", uploadDate: "2024-01-20", fileUrl: "#" },
-      { id: "3", title: "Process Management", subjectId: "2", uploadDate: "2024-01-18", fileUrl: "#" },
-      { id: "4", title: "SQL Fundamentals", subjectId: "3", uploadDate: "2024-02-01", fileUrl: "#" },
-    ];
+  // Load PDFs when subject changes
+  useEffect(() => {
+    if (user && selectedSubject) {
+      loadPDFs();
+    }
+  }, [user, selectedSubject]);
 
-    setSubjects(mockSubjects);
-    setPdfs(mockPDFs);
-    
-    // Select first subject of current semester by default
-    const firstSubject = mockSubjects.find(s => s.semester === "1");
-    if (firstSubject) {
-      setSelectedSubject(firstSubject.id);
+  const loadSubjects = async () => {
+    const { data, error } = await supabase
+      .from("subjects")
+      .select("*")
+      .eq("semester", selectedSemester)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      toast.error("Failed to load subjects");
+      console.error(error);
+    } else {
+      setSubjects(data || []);
+      
+      // Select first subject if none selected
+      if (!selectedSubject && data && data.length > 0) {
+        setSelectedSubject(data[0].id);
+      }
+    }
+  };
+
+  const loadPDFs = async () => {
+    if (!selectedSubject) return;
+
+    const { data, error } = await supabase
+      .from("pdfs")
+      .select("*")
+      .eq("subject_id", selectedSubject)
+      .order("upload_date", { ascending: false });
+
+    if (error) {
+      toast.error("Failed to load PDFs");
+      console.error(error);
+    } else {
+      setPdfs(data || []);
     }
   };
 
   const handleSemesterChange = (semester: string) => {
     setSelectedSemester(semester);
     localStorage.setItem("bookbank_semester", semester);
+    setSelectedSubject(null);
+  };
+
+  const handleAddSubject = async (name: string, isPublic: boolean) => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("subjects")
+      .insert([
+        {
+          user_id: user.id,
+          name,
+          is_public: isPublic,
+          semester: selectedSemester,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Failed to add subject");
+      console.error(error);
+    } else {
+      toast.success(`Subject "${name}" added successfully`);
+      setSubjects([...subjects, data]);
+      setSelectedSubject(data.id);
+    }
+  };
+
+  const handleUploadPDF = async (title: string, file: File) => {
+    if (!selectedSubject || !user) return;
     
-    // Select first subject of new semester
-    const firstSubject = subjects.find(s => s.semester === semester);
-    setSelectedSubject(firstSubject?.id || null);
+    // For now, we'll use object URLs. In production, upload to Supabase Storage
+    const fileUrl = URL.createObjectURL(file);
+
+    const { data, error } = await supabase
+      .from("pdfs")
+      .insert([
+        {
+          user_id: user.id,
+          subject_id: selectedSubject,
+          title,
+          file_url: fileUrl,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Failed to upload PDF");
+      console.error(error);
+    } else {
+      toast.success("PDF uploaded successfully");
+      setPdfs([data, ...pdfs]);
+    }
   };
 
-  const handleAddSubject = (name: string, isPublic: boolean) => {
-    const newSubject: Subject = {
-      id: Date.now().toString(),
-      name,
-      isPublic,
-      semester: selectedSemester,
-    };
-    setSubjects([...subjects, newSubject]);
-    setSelectedSubject(newSubject.id);
-  };
-
-  const handleUploadPDF = (title: string, file: File) => {
-    if (!selectedSubject) return;
-    
-    const newPDF: PDF = {
-      id: Date.now().toString(),
-      title,
-      subjectId: selectedSubject,
-      uploadDate: new Date().toISOString().split("T")[0],
-      fileUrl: URL.createObjectURL(file),
-    };
-    setPdfs([...pdfs, newPDF]);
-  };
-
-  const currentSubjects = subjects.filter(s => s.semester === selectedSemester);
-  const currentPDFs = selectedSubject ? pdfs.filter(p => p.subjectId === selectedSubject) : [];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader 
+        user={user}
         selectedSemester={selectedSemester}
         onSemesterChange={handleSemesterChange}
       />
       
       <div className="flex">
         <DashboardSidebar
-          subjects={currentSubjects}
+          subjects={subjects}
           selectedSubject={selectedSubject}
           onSelectSubject={setSelectedSubject}
           onAddSubject={() => setIsAddSubjectOpen(true)}
@@ -129,7 +211,7 @@ const Dashboard = () => {
         
         <main className="flex-1 p-8">
           <PDFGrid 
-            pdfs={currentPDFs}
+            pdfs={pdfs}
             onUploadClick={() => setIsUploadPDFOpen(true)}
           />
         </main>
