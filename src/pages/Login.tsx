@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { BookOpen, Mail } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -14,8 +13,6 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showVerificationPrompt, setShowVerificationPrompt] = useState(false);
-  const [isResending, setIsResending] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -37,35 +34,14 @@ const Login = () => {
     setIsLoading(false);
 
     if (error) {
-      if (error.message.includes("Email not confirmed")) {
-        setShowVerificationPrompt(true);
-        toast.error("Please verify your email before logging in");
+      if (error.message.includes("Invalid login credentials")) {
+        toast.error("Incorrect email or password. Please check your credentials and try again.");
       } else {
         toast.error(error.message);
       }
     } else {
       toast.success("Welcome back!");
       navigate("/dashboard");
-    }
-  };
-
-  const handleResendVerification = async () => {
-    setIsResending(true);
-    
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-      },
-    });
-
-    setIsResending(false);
-
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("Verification email sent! Check your inbox.");
     }
   };
 
@@ -82,26 +58,6 @@ const Login = () => {
           <CardDescription>Sign in to access your study materials</CardDescription>
         </CardHeader>
         <CardContent>
-          {showVerificationPrompt && (
-            <Alert className="mb-4 border-primary/20 bg-primary/5">
-              <Mail className="h-5 w-5 text-primary" />
-              <AlertDescription className="ml-2">
-                <p className="font-medium mb-2">Email Not Verified</p>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Please check your email and click the verification link to activate your account.
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleResendVerification}
-                  disabled={isResending}
-                >
-                  {isResending ? "Sending..." : "Resend Verification Email"}
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
