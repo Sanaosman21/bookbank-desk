@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { BookOpen, Mail, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -15,6 +16,8 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [verificationEmailSent, setVerificationEmailSent] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -56,8 +59,28 @@ const Register = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Account created! Check your email to verify.");
-      navigate("/login");
+      setVerificationEmailSent(true);
+      toast.success("Verification email sent!");
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setIsResending(true);
+    
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/dashboard`,
+      },
+    });
+
+    setIsResending(false);
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Verification email resent!");
     }
   };
 
@@ -74,7 +97,49 @@ const Register = () => {
           <CardDescription>Create your account to organize your studies</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleRegister} className="space-y-4">
+          {verificationEmailSent ? (
+            <div className="space-y-6">
+              <Alert className="border-primary/20 bg-primary/5">
+                <Mail className="h-5 w-5 text-primary" />
+                <AlertDescription className="ml-2">
+                  <p className="font-medium mb-2">Verification Email Sent!</p>
+                  <p className="text-sm text-muted-foreground">
+                    We've sent a verification link to <strong>{email}</strong>. 
+                    Please check your inbox and click the link to activate your account.
+                  </p>
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-3">
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>Check your spam folder if you don't see the email</span>
+                </div>
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>The verification link expires in 24 hours</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleResendVerification}
+                  disabled={isResending}
+                  className="w-full"
+                >
+                  {isResending ? "Sending..." : "Resend Verification Email"}
+                </Button>
+                <Link to="/login" className="w-full">
+                  <Button variant="ghost" className="w-full">
+                    Back to Login
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <Input
@@ -122,13 +187,24 @@ const Register = () => {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Creating account..." : "Create Account"}
             </Button>
+            
+            <Alert className="mt-4 border-muted bg-muted/50">
+              <Mail className="h-4 w-4" />
+              <AlertDescription className="ml-2 text-xs">
+                You'll need to verify your email address before you can log in
+              </AlertDescription>
+            </Alert>
           </form>
-          <div className="mt-6 text-center text-sm">
+          )}
+          
+          {!verificationEmailSent && (
+            <div className="mt-6 text-center text-sm">
             <span className="text-muted-foreground">Already have an account? </span>
             <Link to="/login" className="text-primary hover:underline font-medium">
               Sign in
             </Link>
           </div>
+          )}
         </CardContent>
       </Card>
     </div>
